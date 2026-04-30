@@ -63,17 +63,18 @@ public struct ContextUsageSnapshot: Equatable, Sendable {
 
     public var displayText: String {
         guard hasUsage else {
-            return "Context usage unavailable"
+            return "Context limit \(Self.compactNumber(limitTokens))"
         }
-        return "Last context \(Self.compactNumber(promptTokens)) / \(Self.compactNumber(limitTokens))"
+        return "Context \(Self.compactNumber(promptTokens)) / \(Self.compactNumber(limitTokens))"
     }
 
     public var detailText: String {
         guard hasUsage else {
-            return "Send a message to get real provider usage."
+            return "Waiting for provider-reported usage after the next response."
         }
 
         var parts = [
+            "\(percent)% used",
             "Output \(Self.compactNumber(completionTokens))",
             "Total \(Self.compactNumber(totalTokens))"
         ]

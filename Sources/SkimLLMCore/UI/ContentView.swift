@@ -194,6 +194,10 @@ public struct ContentView: View {
                 )
 
             HStack {
+                if model.config.isDeepSeekOptimized {
+                    ContextUsageRing(snapshot: model.contextUsage)
+                }
+
                 Text(contextLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -216,11 +220,16 @@ public struct ContentView: View {
                 }
                 .disabled(model.isSending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .help("Send")
+
+                Button {
+                    model.startNewSession()
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                }
+                .disabled(model.isSending || model.documentState == nil)
+                .help("Start new session")
             }
 
-            if model.documentState != nil, model.config.isDeepSeekOptimized {
-                ContextUsageMeter(snapshot: model.contextUsage)
-            }
         }
         .padding(12)
     }
@@ -238,35 +247,40 @@ public struct ContentView: View {
     }
 }
 
-private struct ContextUsageMeter: View {
+private struct ContextUsageRing: View {
     let snapshot: ContextUsageSnapshot
+    private let size: CGFloat = 30
+    private let lineWidth: CGFloat = 3
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(snapshot.displayText)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(color)
-                Text("\(snapshot.percent)%")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(snapshot.detailText)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            ProgressView(value: progressValue, total: Double(snapshot.limitTokens))
-                .progressViewStyle(.linear)
-                .tint(color)
-                .help("Provider-reported usage from the last streamed response. \(snapshot.detailText)")
+        ZStack {
+            Circle()
+                .stroke(Color.secondary.opacity(0.18), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text(centerText)
+                .font(.system(size: snapshot.hasUsage ? 9 : 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
+        .frame(width: size, height: size)
+        .contentShape(Circle())
+        .help(helpText)
     }
 
-    private var progressValue: Double {
-        guard snapshot.hasUsage else { return 0 }
-        return min(Double(snapshot.promptTokens), Double(snapshot.limitTokens))
+    private var progress: Double {
+        snapshot.hasUsage ? snapshot.usageRatio : 0
+    }
+
+    private var centerText: String {
+        snapshot.hasUsage ? "\(snapshot.percent)" : "-"
+    }
+
+    private var helpText: String {
+        "\(snapshot.displayText). \(snapshot.detailText)"
     }
 
     private var color: Color {

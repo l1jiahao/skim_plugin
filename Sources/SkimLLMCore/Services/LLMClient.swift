@@ -264,4 +264,15 @@ private struct ChatCompletionStreamChunk: Decodable {
 
     let choices: [Choice]
     let usage: Usage?
+
+    enum CodingKeys: String, CodingKey {
+        case choices
+        case usage
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        choices = try container.decodeIfPresent([Choice].self, forKey: .choices) ?? []
+        usage = try container.decodeIfPresent(Usage.self, forKey: .usage)
+    }
 }
