@@ -17,6 +17,7 @@ public final class AppModel: ObservableObject {
     @Published public var lastContextChunks: [PDFChunk] = []
     @Published public var sessionSummaries: [ChatSessionSummary] = []
     @Published public var activeSessionID: UUID?
+    @Published public var contextUsage: ContextUsageSnapshot = .empty(limitTokens: LLMProviderConfig().contextLimitTokens)
 
     private let bridge = SkimBridge()
     private let configStore = ConfigStore()
@@ -32,7 +33,9 @@ public final class AppModel: ObservableObject {
     private var activeDocumentKey: String?
 
     public init() {
-        config = configStore.load()
+        let loadedConfig = configStore.load()
+        config = loadedConfig
+        contextUsage = .empty(limitTokens: loadedConfig.contextLimitTokens)
         apiKeyDraft = secretStore.readAPIKey()
         do {
             indexService = try PDFIndexService()
@@ -73,6 +76,7 @@ public final class AppModel: ObservableObject {
 
     public func persistSettings() {
         configStore.save(config)
+        resetContextUsage()
         do {
             try secretStore.saveAPIKey(apiKeyDraft)
             runtimeError = nil
@@ -97,6 +101,7 @@ public final class AppModel: ObservableObject {
             messages = [Self.noDocumentMessage]
             sessionSummaries = []
         }
+        resetContextUsage()
     }
 
     public func openSession(_ id: UUID) {
@@ -111,6 +116,7 @@ public final class AppModel: ObservableObject {
             messages = record.messages
             lastContextChunks = []
             reloadSessionSummaries(documentKey: documentKey)
+            resetContextUsage()
             runtimeError = nil
         } catch {
             runtimeError = error.localizedDescription
@@ -132,6 +138,7 @@ public final class AppModel: ObservableObject {
                 }
             }
             reloadSessionSummaries(documentKey: documentKey)
+            resetContextUsage()
             runtimeError = nil
         } catch {
             runtimeError = error.localizedDescription
@@ -178,6 +185,10 @@ public final class AppModel: ObservableObject {
                 } onReasoningDelta: { delta in
                     await MainActor.run {
                         self.append(reasoningDelta: delta, to: assistantID)
+                    }
+                } onUsage: { usage in
+                    await MainActor.run {
+                        self.updateContextUsage(usage, limitTokens: currentConfig.contextLimitTokens)
                     }
                 }
 
@@ -256,10 +267,12 @@ public final class AppModel: ObservableObject {
                     } else {
                         self?.indexState = .noText(documentID: result.documentID, pageCount: result.pageCount)
                     }
+                    self?.resetContextUsage()
                 }
             } catch {
                 await MainActor.run {
                     self?.indexState = .failed(error.localizedDescription)
+                    self?.resetContextUsage()
                 }
             }
         }
@@ -372,6 +385,7 @@ public final class AppModel: ObservableObject {
             messages = [Self.welcomeMessage(for: state)]
         }
         lastContextChunks = []
+        resetContextUsage()
     }
 
     private func clearChatSession() {
@@ -381,6 +395,7 @@ public final class AppModel: ObservableObject {
         sessionSummaries = []
         lastContextChunks = []
         messages = [Self.noDocumentMessage]
+        resetContextUsage()
     }
 
     private func saveCurrentSessionIfNeeded() {
@@ -423,6 +438,22 @@ public final class AppModel: ObservableObject {
 
     private var hasPersistableMessages: Bool {
         messages.contains { $0.role == .user && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private func resetContextUsage() {
+        contextUsage = .empty(limitTokens: config.contextLimitTokens)
+    }
+
+    private func updateContextUsage(_ usage: LLMResponseUsage, limitTokens: Int) {
+        contextUsage = ContextUsageSnapshot(
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
+            promptCacheHitTokens: usage.promptCacheHitTokens,
+            promptCacheMissTokens: usage.promptCacheMissTokens,
+            reasoningTokens: usage.reasoningTokens,
+            limitTokens: limitTokens
+        )
     }
 
     private func limited(_ text: String?, to maxLength: Int) -> String? {

@@ -85,6 +85,7 @@ public struct LLMProviderConfig: Codable, Equatable, Sendable {
     public var deepSeekThinkingEnabled: Bool
     public var deepSeekReasoningEffort: DeepSeekReasoningEffort
     public var maxLongContextCharacters: Int
+    public var contextLimitTokens: Int
     public var autoDockToSkim: Bool
     public var sidebarWidth: Double
 
@@ -99,6 +100,7 @@ public struct LLMProviderConfig: Codable, Equatable, Sendable {
         deepSeekThinkingEnabled: Bool = false,
         deepSeekReasoningEffort: DeepSeekReasoningEffort = .high,
         maxLongContextCharacters: Int = 700_000,
+        contextLimitTokens: Int = 1_000_000,
         autoDockToSkim: Bool = true,
         sidebarWidth: Double = 440
     ) {
@@ -112,6 +114,7 @@ public struct LLMProviderConfig: Codable, Equatable, Sendable {
         self.deepSeekThinkingEnabled = deepSeekThinkingEnabled
         self.deepSeekReasoningEffort = deepSeekReasoningEffort
         self.maxLongContextCharacters = maxLongContextCharacters
+        self.contextLimitTokens = contextLimitTokens
         self.autoDockToSkim = autoDockToSkim
         self.sidebarWidth = sidebarWidth
     }
@@ -137,6 +140,7 @@ public struct LLMProviderConfig: Codable, Equatable, Sendable {
         deepSeekInteractionMode = .fastReading
         deepSeekReasoningEffort = .high
         maxLongContextCharacters = 700_000
+        contextLimitTokens = 1_000_000
     }
 
     public mutating func applyDeepSeekInteractionMode(_ mode: DeepSeekInteractionMode) {
@@ -159,6 +163,7 @@ public struct LLMProviderConfig: Codable, Equatable, Sendable {
         case deepSeekThinkingEnabled
         case deepSeekReasoningEffort
         case maxLongContextCharacters
+        case contextLimitTokens
         case autoDockToSkim
         case sidebarWidth
     }
@@ -176,6 +181,7 @@ public struct LLMProviderConfig: Codable, Equatable, Sendable {
         deepSeekThinkingEnabled = try container.decodeIfPresent(Bool.self, forKey: .deepSeekThinkingEnabled) ?? defaults.deepSeekThinkingEnabled
         deepSeekReasoningEffort = try container.decodeIfPresent(DeepSeekReasoningEffort.self, forKey: .deepSeekReasoningEffort) ?? defaults.deepSeekReasoningEffort
         maxLongContextCharacters = try container.decodeIfPresent(Int.self, forKey: .maxLongContextCharacters) ?? defaults.maxLongContextCharacters
+        contextLimitTokens = try container.decodeIfPresent(Int.self, forKey: .contextLimitTokens) ?? defaults.contextLimitTokens
         autoDockToSkim = try container.decodeIfPresent(Bool.self, forKey: .autoDockToSkim) ?? defaults.autoDockToSkim
         sidebarWidth = try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? defaults.sidebarWidth
     }

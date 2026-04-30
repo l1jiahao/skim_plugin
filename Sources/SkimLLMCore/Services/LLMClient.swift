@@ -15,7 +15,8 @@ public final class LLMClient {
         config: LLMProviderConfig,
         apiKey: String,
         onDelta: @escaping (String) async -> Void,
-        onReasoningDelta: @escaping (String) async -> Void = { _ in }
+        onReasoningDelta: @escaping (String) async -> Void = { _ in },
+        onUsage: @escaping (LLMResponseUsage) async -> Void = { _ in }
     ) async throws -> String {
         guard let baseURL = config.normalizedBaseURL else {
             throw LLMClientError.invalidBaseURL
@@ -56,6 +57,10 @@ public final class LLMClient {
             if payload == "[DONE]" { break }
             guard let data = payload.data(using: .utf8) else { continue }
             if let chunk = try? JSONDecoder().decode(ChatCompletionStreamChunk.self, from: data) {
+                if let usage = chunk.usage?.snapshot {
+                    await onUsage(usage)
+                }
+
                 let reasoningDelta = chunk.choices.compactMap { $0.delta?.reasoningContent }.joined()
                 if !reasoningDelta.isEmpty {
                     await onReasoningDelta(reasoningDelta)
@@ -206,6 +211,43 @@ public enum LLMClientError: Error, LocalizedError {
 }
 
 private struct ChatCompletionStreamChunk: Decodable {
+    struct Usage: Decodable {
+        struct CompletionTokensDetails: Decodable {
+            let reasoningTokens: Int?
+
+            enum CodingKeys: String, CodingKey {
+                case reasoningTokens = "reasoning_tokens"
+            }
+        }
+
+        let promptTokens: Int
+        let completionTokens: Int
+        let totalTokens: Int
+        let promptCacheHitTokens: Int?
+        let promptCacheMissTokens: Int?
+        let completionTokensDetails: CompletionTokensDetails?
+
+        var snapshot: LLMResponseUsage {
+            LLMResponseUsage(
+                promptTokens: promptTokens,
+                completionTokens: completionTokens,
+                totalTokens: totalTokens,
+                promptCacheHitTokens: promptCacheHitTokens,
+                promptCacheMissTokens: promptCacheMissTokens,
+                reasoningTokens: completionTokensDetails?.reasoningTokens
+            )
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case promptTokens = "prompt_tokens"
+            case completionTokens = "completion_tokens"
+            case totalTokens = "total_tokens"
+            case promptCacheHitTokens = "prompt_cache_hit_tokens"
+            case promptCacheMissTokens = "prompt_cache_miss_tokens"
+            case completionTokensDetails = "completion_tokens_details"
+        }
+    }
+
     struct Choice: Decodable {
         struct Delta: Decodable {
             let content: String?
@@ -221,4 +263,5 @@ private struct ChatCompletionStreamChunk: Decodable {
     }
 
     let choices: [Choice]
+    let usage: Usage?
 }

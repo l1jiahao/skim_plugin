@@ -101,6 +101,8 @@ The UI exposes `reasoning_effort` for DeepSeek thinking mode.
 
 When thinking mode is enabled, streamed `reasoning_content` is rendered separately from the final answer in a collapsible `Thinking` section. The final answer remains the main message body.
 
+The context meter uses provider-reported streaming `usage` from DeepSeek. The request sets `stream_options.include_usage`, then the UI displays the last returned `prompt_tokens` against the configured context limit. If the provider does not return `usage`, the meter stays unavailable instead of estimating.
+
 ## Tradeoffs
 
 Long-context mode is more complete than pure retrieval, but it sends more text per request. Context caching should reduce repeated cost and latency after the first request when the document prefix remains stable.

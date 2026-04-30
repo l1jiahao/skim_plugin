@@ -217,6 +217,10 @@ public struct ContentView: View {
                 .disabled(model.isSending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .help("Send")
             }
+
+            if model.documentState != nil, model.config.isDeepSeekOptimized {
+                ContextUsageMeter(snapshot: model.contextUsage)
+            }
         }
         .padding(12)
     }
@@ -231,6 +235,48 @@ public struct ContentView: View {
             return "DeepSeek long context"
         }
         return model.config.useFullPDFWhenAvailable && model.config.supportsPDFInput ? "Full PDF enabled" : "RAG context"
+    }
+}
+
+private struct ContextUsageMeter: View {
+    let snapshot: ContextUsageSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(snapshot.displayText)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(color)
+                Text("\(snapshot.percent)%")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(snapshot.detailText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            ProgressView(value: progressValue, total: Double(snapshot.limitTokens))
+                .progressViewStyle(.linear)
+                .tint(color)
+                .help("Provider-reported usage from the last streamed response. \(snapshot.detailText)")
+        }
+    }
+
+    private var progressValue: Double {
+        guard snapshot.hasUsage else { return 0 }
+        return min(Double(snapshot.promptTokens), Double(snapshot.limitTokens))
+    }
+
+    private var color: Color {
+        if snapshot.isCritical {
+            return .red
+        }
+        if snapshot.isWarning {
+            return .orange
+        }
+        return .secondary
     }
 }
 
