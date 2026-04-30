@@ -249,10 +249,24 @@ public struct ContentView: View {
 
 private struct ContextUsageRing: View {
     let snapshot: ContextUsageSnapshot
+    @State private var isHovering = false
     private let size: CGFloat = 30
     private let lineWidth: CGFloat = 3
 
     var body: some View {
+        ring
+        .frame(width: size, height: size)
+        .contentShape(Circle())
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .popover(isPresented: $isHovering, arrowEdge: .bottom) {
+            ContextUsageHoverCard(snapshot: snapshot)
+                .padding(8)
+        }
+    }
+
+    private var ring: some View {
         ZStack {
             Circle()
                 .stroke(Color.secondary.opacity(0.18), lineWidth: lineWidth)
@@ -267,8 +281,6 @@ private struct ContextUsageRing: View {
                 .minimumScaleFactor(0.7)
         }
         .frame(width: size, height: size)
-        .contentShape(Circle())
-        .help(helpText)
     }
 
     private var progress: Double {
@@ -279,10 +291,6 @@ private struct ContextUsageRing: View {
         snapshot.hasUsage ? "\(snapshot.percent)" : "-"
     }
 
-    private var helpText: String {
-        "\(snapshot.displayText). \(snapshot.detailText)"
-    }
-
     private var color: Color {
         if snapshot.isCritical {
             return .red
@@ -291,6 +299,32 @@ private struct ContextUsageRing: View {
             return .orange
         }
         return .secondary
+    }
+}
+
+private struct ContextUsageHoverCard: View {
+    let snapshot: ContextUsageSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(snapshot.displayText)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary)
+            Text(snapshot.detailText)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(width: 300, alignment: .leading)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.secondary.opacity(0.18))
+        )
+        .shadow(color: .black.opacity(0.14), radius: 8, y: 3)
     }
 }
 
